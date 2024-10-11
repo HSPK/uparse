@@ -30,10 +30,10 @@ moviepy = "^1.0.3"
 python-multipart = "^0.0.12"
 uvicorn = "^0.31.0"
 
-[[tool.poetry.source]]
-name = "tsinghua"
-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
-priority = "primary"
+# [[tool.poetry.source]]
+# name = "tsinghua"
+# url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+# priority = "primary"
 
 
 [tool.poetry.group.test.dependencies]

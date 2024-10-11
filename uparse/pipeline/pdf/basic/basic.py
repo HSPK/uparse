@@ -1,7 +1,8 @@
-from uparse.schema import Document
+from uparse.schema import Chunk, Document
 from uparse.utils import convert_to
 
 from .._base import PDFState, PDFTransform
+from ..marker.postprocessors.markdown import FullyMergedBlock, merge_lines, merge_spans
 from ..schema.page import Page
 
 
@@ -25,7 +26,7 @@ class MarkerDetectLangs(PDFTransform):
         self.default_langs = default_langs or ["English", "Chinese"]
 
     async def transform(self, state: PDFState, **kwargs):
-        from marker.ocr.lang import replace_langs_with_codes, validate_langs
+        from ..marker.ocr.lang import replace_langs_with_codes, validate_langs
 
         langs = state.get("langs") or self.default_langs
         langs = replace_langs_with_codes(langs)
@@ -45,7 +46,7 @@ class RemoveWatermarkBasedOnText(PDFTransform):
     async def transform(self, state: PDFState, **kwargs):
         from .watermark import remove_watermarks
 
-        watermarks = remove_watermarks(state["pdfium_doc"], self.freq_thresh, self.least_span)
+        watermarks = remove_watermarks(state["pages"], self.freq_thresh, self.least_span)
         state["metadata"]["watermarks"] = watermarks
         return state
 
@@ -60,9 +61,9 @@ class MarkerExtractText(PDFTransform):
         )
 
     async def transform(self, state: PDFState, **kwargs):
-        from marker.pdf.extract_text import get_text_blocks
-        from marker.pdf.images import render_image
-        from marker.settings import settings
+        from ..marker.pdf.extract_text import get_text_blocks
+        from ..marker.pdf.images import render_image
+        from ..marker.settings import settings
 
         doc = state["pdfium_doc"]
         pages, toc = get_text_blocks(doc, state["uri"])
@@ -87,7 +88,7 @@ class MarkerAnnotateBlocks(PDFTransform):
         )
 
     async def transform(self, state: PDFState, **kwargs):
-        from marker.layout.layout import annotate_block_types
+        from ..marker.layout.layout import annotate_block_types
 
         annotate_block_types(state["pages"])
 
@@ -99,7 +100,7 @@ class MarkerIndentCodeBlocks(PDFTransform):
         super().__init__(input_key=["doc", "pages"], output_key="pages", *args, **kwargs)
 
     async def transform(self, state: PDFState, **kwargs):
-        from marker.cleaners.code import identify_code_blocks, indent_blocks
+        from ..marker.cleaners.code import identify_code_blocks, indent_blocks
 
         code_block_count = identify_code_blocks(state["pages"])
 
@@ -113,10 +114,9 @@ class MarkerMergeBlocks(PDFTransform):
         super().__init__(input_key="pages", output_key="text_blocks", *args, **kwargs)
 
     async def transform(self, state: PDFState, **kwargs):
-        from marker.cleaners.fontstyle import find_bold_italic
-        from marker.cleaners.headers import filter_common_titles
-        from marker.cleaners.headings import split_heading_blocks
-        from marker.postprocessors.markdown import merge_lines, merge_spans
+        from ..marker.cleaners.fontstyle import find_bold_italic
+        from ..marker.cleaners.headers import filter_common_titles
+        from ..marker.cleaners.headings import split_heading_blocks
 
         split_heading_blocks(state["pages"])
         find_bold_italic(state["pages"])
@@ -136,7 +136,7 @@ class MarkerFilterBadSpans(PDFTransform):
         self.bad_span_types = bad_span_types
 
     async def transform(self, state: PDFState, **kwargs):
-        from marker.cleaners.headers import filter_header_footer
+        from ..marker.cleaners.headers import filter_header_footer
 
         bad_span_ids = filter_header_footer(state["pages"])
         for page in state["pages"]:
@@ -146,6 +146,30 @@ class MarkerFilterBadSpans(PDFTransform):
         return state
 
 
+def _build_chunks(blocks: list[FullyMergedBlock]) -> list[Chunk]:
+    chunks = []
+    for i, block in enumerate(blocks):
+        chunk_type = "markdown"
+        if block.block_type == "Table":
+            chunk_type = "table_csv"
+        elif block.block_type == "Image":
+            chunk_type = "image"
+        elif block.block_type == "Title":
+            chunk_type = "markdown_title"
+        elif block.block_type == "Section-Header":
+            chunk_type = "markdown_section_header"
+        chunk = Chunk(
+            index=i,
+            content=block.text,
+            chunk_type=chunk_type,
+            image_name=block.image_name,
+            table_content=block.table_data,
+            image_content=block.image_data,
+        )
+        chunks.append(chunk)
+    return chunks
+
+
 class BuildDocument(PDFTransform):
     def __init__(self, *args, **kwargs):
         super().__init__(
@@ -153,8 +177,6 @@ class BuildDocument(PDFTransform):
         )
 
     async def transform(self, state: PDFState, **kwargs):
-        from .. import _build_chunks
-
         chunks = _build_chunks(state["text_blocks"])
         doc = Document(summary=state["full_text"], metadata=state["metadata"])
         doc.add_chunk(chunks)

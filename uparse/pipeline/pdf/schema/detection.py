@@ -56,6 +56,10 @@ class PolygonBox(BaseModel):
             box[1], box[3] = box[3], box[1]
         return box
 
+    @property
+    def polygon_int(self):
+        return [[int(x), int(y)] for x, y in self.polygon]
+
     def rescale(self, processor_size, image_size):
         # Point is in x, y format
         page_width, page_height = processor_size

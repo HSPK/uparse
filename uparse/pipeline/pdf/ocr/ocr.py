@@ -3,7 +3,6 @@ from typing import List, Optional
 from loguru import logger
 from marker.ocr.heuristics import detect_bad_ocr, no_text_found, should_ocr_page
 from marker.ocr.recognition import tesseract_recognition
-from marker.pdf.images import render_image
 from marker.settings import settings
 from surya.ocr import run_recognition
 
@@ -13,21 +12,19 @@ from ..schema.page import Page
 
 
 def surya_recognition(
-    doc,
     page_idxs,
     langs: List[str],
     rec_model,
     pages: List[Page],
     batch_size: int = 32,
 ) -> List[Optional[Page]]:
-    images = [render_image(doc[pnum], dpi=settings.SURYA_OCR_DPI) for pnum in page_idxs]
+    images = [p.page_image for p in pages]
     processor = rec_model.processor
     selected_pages = [p for i, p in enumerate(pages) if i in page_idxs]
 
     surya_langs = [langs] * len(page_idxs)
     detection_results = [p.text_lines.bboxes for p in selected_pages]
-    polygons = [[b.polygon for b in bboxes] for bboxes in detection_results]
-
+    polygons = [[b.polygon_int for b in bboxes] for bboxes in detection_results]
     results = run_recognition(
         images,
         surya_langs,
@@ -70,6 +67,8 @@ def surya_recognition(
             rotation=0,
             text_lines=text_lines,
             ocr_method="surya",
+            images=old_page.images,
+            page_image=old_page.page_image,
         )
         new_pages.append(page)
     return new_pages
@@ -118,7 +117,7 @@ class MarkerOCR(PDFTransform):
         elif ocr_method == "surya":
             logger.debug(f"Surya OCR idxs: {ocr_idxs}, bs: {self.shared.batch_size}")
             new_pages = surya_recognition(
-                doc, ocr_idxs, langs, rec_model, pages, batch_size=self.shared.batch_size
+                ocr_idxs, langs, rec_model, pages, batch_size=self.shared.batch_size
             )
         elif ocr_method == "ocrmypdf":
             new_pages = tesseract_recognition(doc, ocr_idxs, langs)
