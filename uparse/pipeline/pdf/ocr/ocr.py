@@ -18,10 +18,9 @@ def surya_recognition(
     pages: List[Page],
     batch_size: int = 32,
 ) -> List[Optional[Page]]:
-    images = [p.page_image for p in pages]
     processor = rec_model.processor
     selected_pages = [p for i, p in enumerate(pages) if i in page_idxs]
-
+    images = [p.page_image for p in selected_pages]
     surya_langs = [langs] * len(page_idxs)
     detection_results = [p.text_lines.bboxes for p in selected_pages]
     polygons = [[b.polygon_int for b in bboxes] for bboxes in detection_results]
@@ -107,13 +106,19 @@ class MarkerOCR(PDFTransform):
                 ocr_idxs.append(pnum)
                 ocr_pages += 1
 
+        state["metadata"]["ocr"] = {
+            "ocr_pages": 0,
+            "ocr_failed": 0,
+            "ocr_success": 0,
+            "ocr_engine": "none",
+        }
         # No pages need OCR
         if ocr_pages == 0:
-            return pages, {"ocr_pages": 0, "ocr_failed": 0, "ocr_success": 0, "ocr_engine": "none"}
+            return state
 
         ocr_method = settings.OCR_ENGINE
         if ocr_method is None or ocr_method == "None":
-            return pages, {"ocr_pages": 0, "ocr_failed": 0, "ocr_success": 0, "ocr_engine": "none"}
+            return state
         elif ocr_method == "surya":
             logger.debug(f"Surya OCR idxs: {ocr_idxs}, bs: {self.shared.batch_size}")
             new_pages = surya_recognition(

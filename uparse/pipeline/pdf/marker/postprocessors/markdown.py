@@ -120,6 +120,10 @@ def _merge_page_spans(page: Page) -> List[MergedBlock]:
     page_blocks: List[MergedBlock] = []
     for block in page.blocks:
         page_blocks.extend(_merge_block_spans(block))
+    if not page_blocks:
+        print("No blocks found in page", page.pnum)
+        print(page)
+        return page_blocks
     last_block = page_blocks[-1]
     if len(last_block.lines) == 1 and last_block.lines[0].text.isdigit():
         # Remove last block if it's a page number

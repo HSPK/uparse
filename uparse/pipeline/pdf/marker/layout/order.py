@@ -1,140 +1,69 @@
-from copy import deepcopy
+from collections import defaultdict
 from typing import List
 
-import numpy as np
-import torch
-from PIL import Image
-from surya.model.ordering.encoderdecoder import OrderVisionEncoderDecoderModel
-from surya.schema import OrderBox, OrderResult
-from surya.settings import settings
-from tqdm import tqdm
+from surya.ordering import batch_ordering
+
+from ...schema.bbox import rescale_bbox
+from ...schema.page import Page
+from ..pdf.images import render_image
+from ..pdf.utils import sort_block_group
+from ..settings import settings
 
 
 def get_batch_size():
-    batch_size = settings.ORDER_BATCH_SIZE
-    if batch_size is None:
-        batch_size = 8
-        if settings.TORCH_DEVICE_MODEL == "mps":
-            batch_size = 8
-        if settings.TORCH_DEVICE_MODEL == "cuda":
-            batch_size = 32
-    return batch_size
+    if settings.ORDER_BATCH_SIZE is not None:
+        return settings.ORDER_BATCH_SIZE
+    elif settings.TORCH_DEVICE_MODEL == "cuda":
+        return 6
+    elif settings.TORCH_DEVICE_MODEL == "mps":
+        return 6
+    return 6
 
 
-def rank_elements(arr):
-    enumerated_and_sorted = sorted(enumerate(arr), key=lambda x: x[1])
-    rank = [0] * len(arr)
+def surya_order(doc, pages: List[Page], order_model, batch_multiplier=1):
+    images = [render_image(doc[pnum], dpi=settings.SURYA_ORDER_DPI) for pnum in range(len(pages))]
 
-    for rank_value, (original_index, value) in enumerate(enumerated_and_sorted):
-        rank[original_index] = rank_value
+    # Get bboxes for all pages
+    bboxes = []
+    for page in pages:
+        bbox = [b.bbox for b in page.layout.bboxes][:settings.ORDER_MAX_BBOXES]
+        bboxes.append(bbox)
 
-    return rank
-
-
-def batch_ordering(images: List, bboxes: List[List[List[float]]], model: OrderVisionEncoderDecoderModel, processor, batch_size=None) -> List[OrderResult]:
-    assert all([isinstance(image, Image.Image) for image in images])
-    assert len(images) == len(bboxes)
-    if batch_size is None:
-        batch_size = get_batch_size()
+    processor = order_model.processor
+    order_results = batch_ordering(images, bboxes, order_model, processor, batch_size=int(get_batch_size() * batch_multiplier))
+    for page, order_result in zip(pages, order_results):
+        page.order = order_result
 
 
-    output_order = []
-    for i in tqdm(range(0, len(images), batch_size), desc="Finding reading order"):
-        batch_bboxes = deepcopy(bboxes[i:i+batch_size])
-        batch_images = images[i:i+batch_size]
-        batch_images = [image.convert("RGB") for image in batch_images]  # also copies the images
+def sort_blocks_in_reading_order(pages: List[Page]):
+    for page in pages:
+        order = page.order
+        block_positions = {}
+        max_position = 0
+        for i, block in enumerate(page.blocks):
+            for order_box in order.bboxes:
+                order_bbox = order_box.bbox
+                position = order_box.position
+                order_bbox = rescale_bbox(order.image_bbox, page.bbox, order_bbox)
+                block_intersection = block.intersection_pct(order_bbox)
+                if i not in block_positions:
+                    block_positions[i] = (block_intersection, position)
+                elif block_intersection > block_positions[i][0]:
+                    block_positions[i] = (block_intersection, position)
+                max_position = max(max_position, position)
+        block_groups = defaultdict(list)
+        for i, block in enumerate(page.blocks):
+            if i in block_positions:
+                position = block_positions[i][1]
+            else:
+                max_position += 1
+                position = max_position
 
-        orig_sizes = [image.size for image in batch_images]
-        model_inputs = processor(images=batch_images, boxes=batch_bboxes)
+            block_groups[position].append(block)
 
-        batch_pixel_values = model_inputs["pixel_values"]
-        batch_bboxes = model_inputs["input_boxes"]
-        batch_bbox_mask = model_inputs["input_boxes_mask"]
-        batch_bbox_counts = model_inputs["input_boxes_counts"]
+        new_blocks = []
+        for position in sorted(block_groups.keys()):
+            block_group = sort_block_group(block_groups[position])
+            new_blocks.extend(block_group)
 
-        batch_bboxes = torch.from_numpy(np.array(batch_bboxes, dtype=np.int32)).to(model.device)
-        batch_bbox_mask = torch.from_numpy(np.array(batch_bbox_mask, dtype=np.int32)).to(model.device)
-        batch_pixel_values = torch.tensor(np.array(batch_pixel_values), dtype=model.dtype).to(model.device)
-        batch_bbox_counts = torch.tensor(np.array(batch_bbox_counts), dtype=torch.long).to(model.device)
-
-        token_count = 0
-        past_key_values = None
-        encoder_outputs = None
-        batch_predictions = [[] for _ in range(len(batch_images))]
-        done = torch.zeros(len(batch_images), dtype=torch.bool, device=model.device)
-
-        with torch.inference_mode():
-            while token_count < settings.ORDER_MAX_BOXES:
-                return_dict = model(
-                    pixel_values=batch_pixel_values,
-                    decoder_input_boxes=batch_bboxes,
-                    decoder_input_boxes_mask=batch_bbox_mask,
-                    decoder_input_boxes_counts=batch_bbox_counts,
-                    encoder_outputs=encoder_outputs,
-                    past_key_values=past_key_values,
-                )
-                logits = return_dict["logits"].detach()
-
-                last_tokens = []
-                last_token_mask = []
-                min_val = torch.finfo(model.dtype).min
-                for j in range(logits.shape[0]):
-                    label_count = batch_bbox_counts[j, 1] - batch_bbox_counts[j, 0] - 1  # Subtract 1 for the sep token
-                    new_logits = logits[j, -1]
-                    new_logits[batch_predictions[j]] = min_val  # Mask out already predicted tokens, we can only predict each token once
-                    new_logits[label_count:] = min_val  # Mask out all logit positions above the number of bboxes
-                    pred = int(torch.argmax(new_logits, dim=-1).item())
-
-                    # Add one to avoid colliding with the 1000 height/width token for bboxes
-                    last_tokens.append([[pred + processor.box_size["height"] + 1] * 4])
-                    if len(batch_predictions[j]) == label_count - 1:  # Minus one since we're appending the final label
-                        last_token_mask.append([0])
-                        batch_predictions[j].append(pred)
-                        done[j] = True
-                    elif len(batch_predictions[j]) < label_count - 1:
-                        last_token_mask.append([1])
-                        batch_predictions[j].append(pred)  # Get rank prediction for given position
-                    else:
-                        last_token_mask.append([0])
-
-                if done.all():
-                    break
-
-                past_key_values = return_dict["past_key_values"]
-                encoder_outputs = (return_dict["encoder_last_hidden_state"],)
-
-                batch_bboxes = torch.tensor(last_tokens, dtype=torch.long).to(model.device)
-                token_bbox_mask = torch.tensor(last_token_mask, dtype=torch.long).to(model.device)
-                batch_bbox_mask = torch.cat([batch_bbox_mask, token_bbox_mask], dim=1)
-                token_count += 1
-
-        for j, row_pred in enumerate(batch_predictions):
-            row_bboxes = bboxes[i+j]
-            assert len(row_pred) == len(row_bboxes), f"Mismatch between logits and bboxes. Logits: {len(row_pred)}, Bboxes: {len(row_bboxes)}"
-
-            orig_size = orig_sizes[j]
-            ranks = [0] * len(row_bboxes)
-
-            for box_idx in range(len(row_bboxes)):
-                ranks[row_pred[box_idx]] = box_idx
-
-            order_boxes = []
-            for row_bbox, rank in zip(row_bboxes, ranks):
-                order_box = OrderBox(
-                    bbox=row_bbox,
-                    position=rank,
-                )
-                order_boxes.append(order_box)
-
-            result = OrderResult(
-                bboxes=order_boxes,
-                image_bbox=[0, 0, orig_size[0], orig_size[1]],
-            )
-            output_order.append(result)
-    return output_order
-
-
-
-
-
-
+        page.blocks = new_blocks
