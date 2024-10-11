@@ -2,7 +2,8 @@ from uparse.schema import Chunk, Document
 from uparse.utils import convert_to
 
 from .._base import PDFState, PDFTransform
-from ..marker.postprocessors.markdown import FullyMergedBlock, merge_lines, merge_spans
+from ..marker.postprocessors.markdown import merge_lines, merge_spans
+from ..schema.merged import FullyMergedBlock
 from ..schema.page import Page
 
 

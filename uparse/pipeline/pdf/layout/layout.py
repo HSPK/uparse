@@ -13,7 +13,7 @@ class MarkerLayoutDetection(PDFTransform):
         super().__init__(input_key=input_key, output_key=output_key, *args, **kwargs)
 
     async def transform(self, state: PDFState, **kwargs):
-        from marker.layout.layout import batch_layout_detection
+        from ..marker.layout.layout import batch_layout_detection
 
         pages = state["pages"]
         results = batch_layout_detection(

@@ -1,17 +1,17 @@
 from typing import List
 
-from marker.pdf.images import render_image
-from marker.schema.bbox import rescale_bbox
-from marker.settings import settings
-from marker.tables.utils import replace_dots, replace_newlines, sort_table_blocks
 from tabulate import tabulate
 
 from uparse.utils import csv_dumps
 
+from .._base import PDFState, PDFTransform
+from ..marker.pdf.images import render_image
+from ..marker.settings import settings
+from ..marker.tables.utils import replace_dots, replace_newlines, sort_table_blocks
+from ..schema.bbox import rescale_bbox
 from ..schema.block import Block, Line, Span
 from ..schema.detection import LayoutBox
 from ..schema.page import Page
-from .._base import PDFState, PDFTransform
 from .tatr import table_transformer_recognition
 from .utils import add_offset, reduce_margin, remove_dumplicate
 

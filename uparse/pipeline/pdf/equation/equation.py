@@ -14,7 +14,7 @@ class ExtractEquations(PDFTransform):
         self.batch_multiplier = batch_multiplier
 
     async def transform(self, state: PDFState, **kwargs):
-        from marker.equations.equations import replace_equations
+        from ..marker.equations.equations import replace_equations
 
         _, eq_stats = replace_equations(
             state["pdfium_doc"],

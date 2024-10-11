@@ -12,8 +12,8 @@ class ExtractImages(PDFTransform):
         super().__init__(input_key=input_key, output_key=output_key, *args, **kwargs)
 
     async def transform(self, state: PDFState, **kwargs):
-        from marker.images.extract import extract_images
-        from marker.images.save import images_to_dict
+        from ..marker.images.extract import extract_images
+        from ..marker.images.save import images_to_dict
 
         extract_images(state["pdfium_doc"], state["pages"])
         doc_images = images_to_dict(state["pages"])

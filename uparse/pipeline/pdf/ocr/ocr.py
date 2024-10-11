@@ -1,12 +1,12 @@
 from typing import List, Optional
 
 from loguru import logger
-from marker.ocr.heuristics import detect_bad_ocr, no_text_found, should_ocr_page
-from marker.ocr.recognition import tesseract_recognition
-from marker.settings import settings
 from surya.ocr import run_recognition
 
 from .._base import PDFState, PDFTransform
+from ..marker.ocr.heuristics import detect_bad_ocr, no_text_found, should_ocr_page
+from ..marker.ocr.recognition import tesseract_recognition
+from ..marker.settings import settings
 from ..schema.block import Block, Line, Span
 from ..schema.page import Page
 

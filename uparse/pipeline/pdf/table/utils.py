@@ -1,5 +1,4 @@
-from marker.schema.bbox import box_intersection_pct
-
+from ..schema.bbox import box_intersection_pct
 from ..schema.detection import TableCell
 
 

@@ -15,10 +15,10 @@ class MarkerCleanText(PDFTransform):
         self.batch_multiplier = batch_multiplier
 
     async def transform(self, state: PDFState, **kwargs):
-        from marker.cleaners.bullets import replace_bullets
-        from marker.cleaners.text import cleanup_text
-        from marker.postprocessors.editor import edit_full_text
-        from marker.postprocessors.markdown import get_full_text
+        from ..marker.cleaners.bullets import replace_bullets
+        from ..marker.cleaners.text import cleanup_text
+        from ..marker.postprocessors.editor import edit_full_text
+        from ..marker.postprocessors.markdown import get_full_text
 
         full_text = get_full_text(state["text_blocks"])
         full_text = cleanup_text(full_text)

@@ -2,25 +2,24 @@ from collections import defaultdict
 from copy import deepcopy
 from typing import List
 
-from marker.debug.data import dump_equation_debug_data
-from marker.equations.inference import get_latex_batched, get_total_texify_tokens
-from marker.pdf.images import render_bbox_image
-from marker.schema.bbox import rescale_bbox
-from marker.schema.block import (
+from ...schema.bbox import rescale_bbox
+from ...schema.block import (
     Block,
     Line,
     Span,
-    bbox_from_lines,
     find_insert_block,
     split_block_lines,
 )
-from marker.schema.page import Page
-from marker.settings import settings
+from ...schema.page import Page
+from ..debug.data import dump_equation_debug_data
+from ..pdf.images import render_bbox_image
+from ..settings import settings
+from .inference import get_latex_batched, get_total_texify_tokens
 
 
 def find_equation_blocks(page, processor):
     equation_blocks = []
-    equation_regions = [l.bbox for l in page.layout.bboxes if l.label in ["Formula"]]
+    equation_regions = [line.bbox for line in page.layout.bboxes if line.label in ["Formula"]]
     equation_regions = [rescale_bbox(page.layout.image_bbox, page.bbox, b) for b in equation_regions]
 
     lines_to_remove = defaultdict(list)

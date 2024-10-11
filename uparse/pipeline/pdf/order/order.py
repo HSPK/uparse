@@ -15,7 +15,7 @@ class MarkerSortByReadingOrder(PDFTransform):
         self.max_bboxes = max_bboxes
 
     async def transform(self, state: PDFState, **kwargs):
-        from marker.layout.order import batch_ordering, sort_blocks_in_reading_order
+        from ..marker.layout.order import batch_ordering, sort_blocks_in_reading_order
 
         pages = state["pages"]
         images = [p.page_image for p in pages]
