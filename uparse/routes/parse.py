@@ -2,46 +2,44 @@ import os
 import time
 from typing import Annotated, Type
 
-import anyio
-import anyio.to_thread
 from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.responses import JSONResponse
 from loguru import logger
 from pydantic import BaseModel
 
-from uparse.models import get_shared_state
-from uparse.parser import (
-    AudioParser,
-    BaseParser,
-    CSVParser,
-    ExcelParser,
-    PDFParser,
-    TextParser,
-    VideoParser,
-    WordParser,
+from uparse.models import get_all_models
+from uparse.pipeline import (
+    AudioPipeline,
+    CSVPipeline,
+    ExcelPipeline,
+    PDFVanillaPipeline,
+    Pipeline,
+    TextPipeline,
+    VideoPipeline,
+    WordPipeline,
 )
+from uparse.schema import Document
 from uparse.storage import get_storage
-from uparse.types import Document
 
 router = APIRouter()
 storage = get_storage()
 
-parsers: list[Type[BaseParser]] = [
-    CSVParser,
-    PDFParser,
-    ExcelParser,
-    TextParser,
-    WordParser,
-    VideoParser,
-    AudioParser,
+pipelines: list[Type[Pipeline]] = [
+    CSVPipeline,
+    WordPipeline,
+    ExcelPipeline,
+    PDFVanillaPipeline,
+    TextPipeline,
+    AudioPipeline,
+    VideoPipeline,
 ]
 
-allowed_extensions = [parser.allowed_extensions for parser in parsers]
+allowed_extensions = [p.allowed_extensions for p in pipelines]
 allowed_extensions = [ext for ext_list in allowed_extensions for ext in ext_list]
 kwargs_map = {
-    "PDFParser": {"model_state": None},
-    "VideoParser": {"model_state": None},
-    "AudioParser": {"model_state": None},
+    "PDFParser": {"models": None},
+    "VideoParser": {"models": None},
+    "AudioParser": {"models": None},
 }
 
 
@@ -78,22 +76,20 @@ async def parse_doc(
     )
     file_ext = os.path.splitext(file.filename)[1]
     path = storage.save_upload(file.filename, await file.read())
-    for parser_cls in parsers:
-        if file_ext in parser_cls.allowed_extensions:
+    for pipeline_cls in pipelines:
+        if file_ext in pipeline_cls.allowed_extensions:
             break
     else:
         return ParseResponse(code=400, msg="Unsupported file type").to_response()
-    params = kwargs_map.get(parser_cls.__name__, {})
-    if "model_state" in params:
-        params["model_state"] = get_shared_state()
-    params["uri"] = path
-    params.update({"has_watermark": has_watermark, "force_convert_pdf": force_convert_pdf})
-    parser = parser_cls(**params)
+    params = kwargs_map.get(pipeline_cls.__name__, {})
+    if "models" in params:
+        params["models"] = get_all_models()
+    pipeline = pipeline_cls(**params)
     try:
         start_time = time.time()
-        document = await anyio.to_thread.run_sync(parser.parse)
+        state = await pipeline({"uri": path})
         end_time = time.time()
-        return ParseResponse(data=document, process_time=end_time - start_time)
+        return ParseResponse(data=state["doc"], process_time=end_time - start_time)
     except Exception as e:
         logger.exception(e)
         return ParseResponse(code=500, msg=str(e)).to_response()

@@ -3,64 +3,64 @@ from typing import Any
 import torch
 import whisper
 from loguru import logger
-from pydantic import BaseModel
-from transformers import (
-    TableTransformerForObjectDetection,
-)
+from marker.models import load_all_models
+from transformers import TableTransformerForObjectDetection
+from typing_extensions import TypedDict
 
 from uparse.utils import get_freer_gpu, print_uparse_text_art
 
-from .parser.documents.pdf_parser.models import load_all_models
+
+class Models(TypedDict, total=False):
+    det_model: Any | None = None
+    ocr_model: Any | None = None
+    table_model: Any | None = None
+    texify_model: Any | None = None
+    layout_model: Any | None = None
+    order_model: Any | None = None
+    edit_model: Any | None = None
+    whisper_model: Any | None = None
 
 
-class SharedState(BaseModel):
-    model_list: Any = None
-    table_model: Any = None
-    vision_model: Any = None
-    vision_processor: Any = None
-    whisper_model: Any = None
-    crawler: Any = None
+g_models: Models = None
 
 
-shared_state: SharedState = None
+def get_device():
+    if torch.cuda.is_available():
+        return torch.device(f"cuda:{get_freer_gpu()}")
+    return torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
 
 
-def load_model(
-    load_documents: bool = True,
-    load_media: bool = False,
-    langs: list[str] | None = None,
-    dtype: torch.dtype = torch.float32,
-):
-    global shared_state
+def load_models(dtype: torch.dtype = torch.float32) -> Models:
+    global g_models
 
-    if shared_state is not None:
-        return shared_state
+    if g_models is not None:
+        return g_models
 
-    shared_state = SharedState()
     print_uparse_text_art()
-    device = torch.device(f"cuda:{get_freer_gpu()}" if torch.cuda.is_available() else "cpu")
+    device = get_device()
     logger.debug(f"Using device: {device}")
-    if load_documents:
-        print("[LOG] ✅ Loading OCR Model")
-        shared_state.model_list = load_all_models(device=device, langs=langs, dtype=dtype)
-        print("[LOG] ✅ Loading Table Model")
-        shared_state.table_model = TableTransformerForObjectDetection.from_pretrained(
-            "microsoft/table-structure-recognition-v1.1-all"
-        ).to(device)
-
-    if load_media:
-        print("[LOG] ✅ Loading Audio Model")
-        shared_state.whisper_model = whisper.load_model("small")
-        print("[LOG] ✅ Loading Vision Model")
-    return shared_state
-
-
-def get_shared_state():
-    global shared_state
-    if shared_state is None:
-        load_model()
-    return shared_state
+    print("[LOG] ✅ Loading OCR Model")
+    g_models = {}
+    (
+        g_models["texify_model"],
+        g_models["layout_model"],
+        g_models["order_model"],
+        g_models["edit_model"],
+        g_models["det_model"],
+        g_models["ocr_model"],
+    ) = load_all_models(device=device, dtype=dtype)
+    print("[LOG] ✅ Loading Table Model")
+    g_models["table_model"] = TableTransformerForObjectDetection.from_pretrained(
+        "microsoft/table-structure-recognition-v1.1-all"
+    ).to(device)
+    print("[LOG] ✅ Loading Audio Model")
+    g_models["whisper_model"] = whisper.load_model("small")
+    print("[LOG] ✅ Loading Vision Model")
+    return g_models
 
 
-def get_active_models():
-    return shared_state
+def get_all_models() -> Models:
+    global g_models
+    if g_models is None:
+        g_models = load_models()
+    return g_models
