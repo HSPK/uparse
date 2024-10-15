@@ -30,8 +30,6 @@ def main():
     parser.add_argument("--reload", action="store_true", help="Enable auto-reload")
     args = parser.parse_args()
 
-    os.environ["http_proxy"] = "http://localhost:7890"
-    os.environ["https_proxy"] = "http://localhost:7890"
     get_all_models()
 
     app.include_router(router, prefix="/parse")

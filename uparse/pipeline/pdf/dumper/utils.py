@@ -6,10 +6,10 @@ from PIL import Image as PILImage
 from surya.postprocessing.heatmap import draw_bboxes_on_image, draw_polys_on_image
 from surya.postprocessing.text import draw_text_on_image
 
-from .marker.pdf.images import render_image
-from .schema.bbox import merge_boxes, rescale_bbox
-from .schema.merged import FullyMergedBlock
-from .schema.page import Page
+from ..marker.pdf.images import render_image
+from ..schema.bbox import merge_boxes, rescale_bbox
+from ..schema.merged import FullyMergedBlock
+from ..schema.page import Page
 
 
 def dump_spans(

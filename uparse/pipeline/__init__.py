@@ -1,4 +1,4 @@
-from .callback import PerfTracker
+from .callback import PerfTracker, PytorchMemoryCleaner
 from .csv.pipeline import CSVPipeline
 from .docx.pipeline import WordPipeline
 from .excel.pipeline import ExcelPipeline
@@ -16,6 +16,7 @@ from .text.pipeline import TextPipeline
 
 __all__ = [
     "TranformBatchListener",
+    "PytorchMemoryCleaner",
     "TransformListener",
     "Pipeline",
     "BaseTransform",

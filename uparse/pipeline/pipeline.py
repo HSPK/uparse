@@ -207,9 +207,10 @@ class BaseTransform(Generic[StateType]):
 class Pipeline(BaseTransform[StateType]):
     allowed_extensions = set()
 
-    def __init__(self, models: dict = {}, *args, **kwargs):
+    def __init__(self, models: dict = {}, batch_size: int = 32, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.shared = SharedResource(
+            batch_size=batch_size,
             listener=TranformBatchListener(self._listeners or []), **models
         )
 

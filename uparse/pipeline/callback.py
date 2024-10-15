@@ -1,8 +1,15 @@
 import time
-
+import torch
+import gc
 from ..pipeline.pipeline import BaseTransform, TransformListener
 
 
+class PytorchMemoryCleaner(TransformListener):
+    async def on_transform_exit(self, transform, state):
+        torch.cuda.empty_cache()
+        gc.collect()
+        torch.cuda.empty_cache()
+        
 class PerfTracker(TransformListener):
     def __init__(
         self, print_state: bool = False, print_enter: bool = False, print_output: bool = False
@@ -39,7 +46,6 @@ class PerfTracker(TransformListener):
         try:
             return super().__getattribute__(name)
         except AttributeError:
-            print(name)
             if name.startswith("on_") and name.endswith("_enter"):
                 return self.on_transform_enter
             if name.startswith("on_") and name.endswith("_exit"):

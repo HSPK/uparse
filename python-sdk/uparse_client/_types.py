@@ -1,7 +1,6 @@
 import uuid
 from typing import Any, Dict, Iterable, TypedDict, Union
 
-import arrow
 import httpx
 import pydantic
 from typing_extensions import Literal
@@ -93,13 +92,6 @@ class FinalRequestOptions(BaseModel):
         return self.max_retries if self.max_retries is not None else max_retries
 
 
-def get_current_time_formatted(format: str | None = None, tz: str | None = None) -> str:
-    if format is None:
-        format = "YYYY-MM-DD HH:mm:ss"
-    if tz is None:
-        tz = "Asia/Shanghai"
-    return arrow.now(tz).format(format)
-
 
 class Document(BaseModel):
     """document 由多个 chunk 组成"""
@@ -110,8 +102,8 @@ class Document(BaseModel):
 
     num_chunks: int | None = None
     child_chunk_ids: list[str] | None = None
-    created_at: str = pydantic.Field(default_factory=get_current_time_formatted)
-    updated_at: str = pydantic.Field(default_factory=get_current_time_formatted)
+    created_at: str
+    updated_at: str
     metadata: dict | None = None
 
     chunks: list["Chunk"] = []
@@ -182,9 +174,9 @@ class Chunk(BaseModel):
     """table content, decided by chunk_type"""
     num_tokens: int | None = None
     """number of tokens"""
-    created_at: str = pydantic.Field(default_factory=get_current_time_formatted)
+    created_at: str
     """chunk creation time"""
-    updated_at: str = pydantic.Field(default_factory=get_current_time_formatted)
+    updated_at: str
     """chunk update time"""
     metadata: dict | None = None
     """Othre metadata"""

@@ -13,6 +13,7 @@ from uparse.pipeline import (
     CSVPipeline,
     ExcelPipeline,
     PDFVanillaPipeline,
+    PytorchMemoryCleaner,
     PerfTracker,
     Pipeline,
     TextPipeline,
@@ -77,7 +78,7 @@ async def parse_doc(
             break
     else:
         return ParseResponse(code=400, msg="Unsupported file type").to_response()
-    pipeline = pipeline_cls(models=get_all_models(), listeners=[PerfTracker(print_enter=True)])
+    pipeline = pipeline_cls(models=get_all_models(), listeners=[PerfTracker(print_enter=True), PytorchMemoryCleaner()], batch_size=16)
     try:
         start_time = time.time()
         state = await pipeline({"uri": path})
