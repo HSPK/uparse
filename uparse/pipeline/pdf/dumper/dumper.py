@@ -15,15 +15,14 @@ from .utils import (
 )
 
 
-def run_in_thread(func):
+def run_in_process(func):
     def wrapper(*args, **kwargs):
-        import threading
+        import multiprocessing
 
-        thread = threading.Thread(target=func, args=args, kwargs=kwargs)
-        thread.start()
+        process = multiprocessing.Process(target=func, args=args, kwargs=kwargs)
+        process.start()
 
     return wrapper
-
 
 def normalize_uri(uri: str):
     basename = os.path.basename(uri)
@@ -35,7 +34,7 @@ def normalize_uri(uri: str):
     return basename
 
 
-@run_in_thread
+@run_in_process
 def dump_details(out_dir: pathlib.Path, state: PDFState):
     out_dir = out_dir / normalize_uri(state["uri"])
     out_dir.mkdir(parents=True, exist_ok=True)
