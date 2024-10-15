@@ -15,11 +15,12 @@ from .utils import (
 )
 
 
-def run_in_background(func):
+def run_in_thread(func):
     def wrapper(*args, **kwargs):
-        import asyncio
+        import threading
 
-        return asyncio.get_event_loop().run_in_executor(None, func, *args, **kwargs)
+        thread = threading.Thread(target=func, args=args, kwargs=kwargs)
+        thread.start()
 
     return wrapper
 
@@ -34,7 +35,7 @@ def normalize_uri(uri: str):
     return basename
 
 
-@run_in_background
+@run_in_thread
 def dump_details(out_dir: pathlib.Path, state: PDFState):
     out_dir = out_dir / normalize_uri(state["uri"])
     out_dir.mkdir(parents=True, exist_ok=True)
