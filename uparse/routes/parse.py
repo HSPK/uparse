@@ -13,6 +13,7 @@ from uparse.pipeline import (
     CSVPipeline,
     ExcelPipeline,
     PDFVanillaPipeline,
+    PerfTracker,
     Pipeline,
     TextPipeline,
     VideoPipeline,
@@ -36,11 +37,6 @@ pipelines: list[Type[Pipeline]] = [
 
 allowed_extensions = [p.allowed_extensions for p in pipelines]
 allowed_extensions = [ext for ext_list in allowed_extensions for ext in ext_list]
-kwargs_map = {
-    "PDFParser": {"models": None},
-    "VideoParser": {"models": None},
-    "AudioParser": {"models": None},
-}
 
 
 class AllowedExtensionsResponse(BaseModel):
@@ -75,16 +71,13 @@ async def parse_doc(
         f"[Parse] {file.filename} has_watermark={has_watermark} force_convert_pdf={force_convert_pdf}"
     )
     file_ext = os.path.splitext(file.filename)[1]
-    path = storage.save_upload(file.filename, await file.read())
+    path = storage.save_upload(file.filename, await file.read()).as_posix()
     for pipeline_cls in pipelines:
         if file_ext in pipeline_cls.allowed_extensions:
             break
     else:
         return ParseResponse(code=400, msg="Unsupported file type").to_response()
-    params = kwargs_map.get(pipeline_cls.__name__, {})
-    if "models" in params:
-        params["models"] = get_all_models()
-    pipeline = pipeline_cls(**params)
+    pipeline = pipeline_cls(models=get_all_models(), listeners=[PerfTracker(print_enter=True)])
     try:
         start_time = time.time()
         state = await pipeline({"uri": path})

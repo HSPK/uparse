@@ -182,4 +182,5 @@ class BuildDocument(PDFTransform):
         doc = Document(summary=state["full_text"], metadata=state["metadata"])
         doc.add_chunk(chunks)
         state["doc"] = doc
+        state["pdfium_doc"].close()
         return state
