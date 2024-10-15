@@ -22,7 +22,7 @@ class WordState(State):
 
 class ParseWord(BaseTransform[WordState]):
     def __init__(self, output_dir: str = "outputs", *args, **kwargs):
-        super().__init(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.output_dir = output_dir
 
     async def transform(self, state, **kwargs):

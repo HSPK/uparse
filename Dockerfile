@@ -7,7 +7,7 @@ FROM nvidia/cuda:$CUDA_VERSION-cudnn$CUDNN_VERSION-devel-ubuntu$UBUNTU_VERSION A
 
 # Install python 3.10
 RUN apt-get update && apt-get install -y python3.10 \
-    python3.10-dev python3.10-distutils python3.10-venv python3-pip git libreoffice
+    python3.10-dev python3.10-distutils python3.10-venv python3-pip git libreoffice ffmpeg
 
 WORKDIR /app
 

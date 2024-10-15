@@ -77,7 +77,8 @@ class ParseExcel(BaseTransform[ExcelState]):
 
         doc = Document(metadata={"source": uri})
         doc.add_chunk(chunks)
-        return doc
+        state["doc"] = doc
+        return state
 
 
 class ExcelPipeline(Pipeline):

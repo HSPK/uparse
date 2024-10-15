@@ -87,12 +87,14 @@ class CSVPipeline(Pipeline):
         **kwargs,
     ):
         super().__init__(
-            transforms=ParseCSV(
-                encoding=encoding,
-                autodetect_encoding=autodetect_encoding,
-                source_column=source_column,
-                csv_args=csv_args,
-            ),
+            transforms=[
+                ParseCSV(
+                    encoding=encoding,
+                    autodetect_encoding=autodetect_encoding,
+                    source_column=source_column,
+                    csv_args=csv_args,
+                )
+            ],
             *args,
             **kwargs,
         )
