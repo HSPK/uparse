@@ -26,9 +26,9 @@ RUN apt-get update \
     libffi-dev libgmp-dev libmpfr-dev libmpc-dev
 
 COPY pyproject.toml poetry.lock ./
-RUN pip config set global.index-url https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple && \
-    pip install torch torchvision torchaudio && \
-    pip install flash-attn
+# RUN pip config set global.index-url https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple && \
+#     pip install torch torchvision torchaudio && \
+#     pip install flash-attn
 RUN poetry install --sync --no-cache --no-root --without=test
 
 FROM base AS production
@@ -38,6 +38,5 @@ ENV VIRTUAL_ENV=/app/.venv
 COPY --from=packages ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
-RUN poetry self add "poetry-dynamic-versioning[plugin]"
 COPY . /app/
 RUN poetry install --without=test

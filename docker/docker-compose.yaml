@@ -7,10 +7,10 @@ services:
     restart: always
     runtime: nvidia
     ports:
-      - "${DOC_PORT:-127.0.0.1:8000}:8000"
+      - "${UPARSE_PORT:-127.0.0.1:8000}:8000"
     volumes:
       - huggingface_data:/root/.cache/huggingface
-    command: [ "python3", "server.py", "--host", "0.0.0.0", "--port", "8000", "--documents" ]
+    command: [ "python3", "server.py", "--host", "0.0.0.0", "--port", "8000"]
 
 volumes:
   huggingface_data:
