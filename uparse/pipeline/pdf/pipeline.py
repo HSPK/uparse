@@ -1,5 +1,6 @@
 from ..pipeline import Pipeline
 from .basic.basic import (
+    AlignToSpanOrChar,
     BuildDocument,
     MarkerAnnotateBlocks,
     MarkerDetectLangs,
@@ -10,6 +11,7 @@ from .basic.basic import (
     PdfiumRead,
     RemoveWatermarkBasedOnText,
 )
+from .dumper.dumper import DumpDetails
 from .equation.equation import ExtractEquations
 from .image.image import ExtractImages
 from .layout.layout import MarkerLayoutDetection
@@ -33,6 +35,7 @@ def _build_vanilla_trans() -> Pipeline:
         PdfiumRead(),
         MarkerDetectLangs(),
         MarkerExtractText(),
+        AlignToSpanOrChar(),
         RemoveWatermarkBasedOnText(),
         # OCR Operations
         SuryaTextDetection(),
@@ -54,4 +57,5 @@ def _build_vanilla_trans() -> Pipeline:
         MarkerMergeBlocks(),
         MarkerCleanText(),
         BuildDocument(),
+        DumpDetails(),
     ]

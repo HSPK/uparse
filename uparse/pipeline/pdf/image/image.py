@@ -17,5 +17,6 @@ class ExtractImages(PDFTransform):
 
         extract_images(state["pdfium_doc"], state["pages"])
         doc_images = images_to_dict(state["pages"])
+        state["doc_images"] = doc_images
         state["metadata"]["doc_images"] = list(doc_images.keys())
         return state

@@ -1,4 +1,3 @@
-from ..pipeline import Pipeline, TransformListener
 from ._base import PDFState, PDFTransform
 from .basic.basic import (
     BuildDocument,
@@ -20,7 +19,6 @@ from .order.order import MarkerSortByReadingOrder
 from .table.table import ExtractTables, TableStructureDetection
 from .text_clean.text_clean import MarkerCleanText
 
-
 __all__ = [
     "PDFState",
     "PDFTransform",
@@ -30,6 +28,7 @@ __all__ = [
     "MarkerAnnotateBlocks",
     "MarkerFilterBadSpans",
     "MarkerIndentCodeBlocks",
+    "RemoveWatermarkBasedOnText",
     "MarkerMergeBlocks",
     "BuildDocument",
     "ExtractEquations",

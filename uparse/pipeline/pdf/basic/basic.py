@@ -5,6 +5,7 @@ from .._base import PDFState, PDFTransform
 from ..marker.postprocessors.markdown import merge_lines, merge_spans
 from ..schema.merged import FullyMergedBlock
 from ..schema.page import Page
+from .align import update_page_bbox, update_page_char_bbox
 
 
 class PdfiumRead(PDFTransform):
@@ -74,6 +75,19 @@ class MarkerExtractText(PDFTransform):
 
         state["pages"] = pages
         state["metadata"]["toc"] = toc
+
+        return state
+
+
+class AlignToSpanOrChar(PDFTransform):
+    def __init__(self, *args, **kwargs):
+        super().__init__(input_key=["pages"], output_key=["pages"], *args, **kwargs)
+
+    async def transform(self, state: PDFState, **kwargs):
+        pages = state["pages"]
+        for page in pages:
+            update_page_bbox(page)
+            update_page_char_bbox(page)
 
         return state
 

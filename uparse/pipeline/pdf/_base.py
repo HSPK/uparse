@@ -1,8 +1,10 @@
 import pypdfium2 as pdfium
+from PIL import Image
 
 from uparse.schema import Document
 
 from ..pipeline import BaseTransform, State
+from .schema.merged import FullyMergedBlock
 from .schema.page import Page
 
 
@@ -23,6 +25,8 @@ class PDFState(State):
     """metadata"""
     doc: Document
     """document object"""
+    doc_images: dict[str, Image.Image]
+    text_blocks: list[FullyMergedBlock]
 
 
 class PDFTransform(BaseTransform[PDFState]):

@@ -5,12 +5,11 @@ from tabulate import tabulate
 from uparse.utils import csv_dumps
 
 from .._base import PDFState, PDFTransform
-from ..marker.pdf.images import render_image
 from ..marker.settings import settings
 from ..marker.tables.utils import replace_dots, replace_newlines, sort_table_blocks
 from ..schema.bbox import rescale_bbox
 from ..schema.block import Block, Line, Span
-from ..schema.detection import LayoutBox
+from ..schema.detection import LayoutBox, TableCell
 from ..schema.page import Page
 from .tatr import table_transformer_recognition
 from .utils import add_offset, reduce_margin, remove_dumplicate
@@ -85,14 +84,12 @@ def get_table_rows_by_char_bbox(page: Page, row_dividers, col_dividers):
     return table_rows
 
 
-def recognize_table_structure(table_model, doc, pages: list[Page]):
+def recognize_table_structure(table_model, pages: list[Page]):
     for page in pages:
         for layout in page.layout.bboxes:
             if layout.label == "Table":
                 rec_result = get_table_cell_bbox(
-                    table_model,
-                    render_image(doc[page.pnum], dpi=settings.SURYA_OCR_DPI).crop(layout.bbox),
-                    layout.bbox,
+                    table_model, page.page_image.crop(layout.bbox), layout.bbox
                 )
                 if not rec_result:
                     layout.label = "Text"
@@ -152,7 +149,7 @@ def get_table_tatr(page: Page, layout: LayoutBox) -> List[List[str]]:
 
 
 def format_tables(pages: List[Page]):
-    table_details = {}
+    table_details: dict[str, tuple[List[TableCell], list[list[str]]]] = {}
     for page in pages:
         table_insert_points = {}
         blocks_to_remove = set()
@@ -194,7 +191,7 @@ def format_tables(pages: List[Page]):
             if len(table_rows) == 0:
                 continue
 
-            table_details[f"{pnum}_{table_idx}"] = table_rows
+            table_details[f"{pnum}_{table_idx}"] = (table_layout.table_cells, table_rows)
             table_text = tabulate(
                 table_rows,
                 headers="firstrow",
@@ -243,11 +240,7 @@ class TableStructureDetection(PDFTransform):
         self.batch_multiplier = batch_multiplier
 
     async def transform(self, state: PDFState, **kwargs):
-        from ..table.table import recognize_table_structure
-
-        recognize_table_structure(
-            table_model=self.shared.table_model, doc=state["pdfium_doc"], pages=state["pages"]
-        )
+        recognize_table_structure(table_model=self.shared.table_model, pages=state["pages"])
         return state
 
 
@@ -262,7 +255,5 @@ class ExtractTables(PDFTransform):
         super().__init__(input_key=input_key, output_key=output_key, *args, **kwargs)
 
     async def transform(self, state: PDFState, **kwargs):
-        from ..table.table import format_tables
-
         state["tables"] = format_tables(state["pages"])
         return state

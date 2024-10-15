@@ -1,30 +1,23 @@
 import json
 import pathlib
 
-import pypdfium2 as pdfium
 from PIL import Image as PILImage
 from surya.postprocessing.heatmap import draw_bboxes_on_image, draw_polys_on_image
 from surya.postprocessing.text import draw_text_on_image
 
-from ..marker.pdf.images import render_image
-from ..schema.bbox import merge_boxes, rescale_bbox
+from ..schema.bbox import rescale_bbox
+from ..schema.detection import TableCell
 from ..schema.merged import FullyMergedBlock
 from ..schema.page import Page
 
 
-def dump_spans(
-    out_dir: pathlib.Path | None,
-    pages: list[Page],
-    doc,
-    render_dpi: int,
-    prefix: str = "",
-):
+def dump_spans(out_dir: pathlib.Path | None, pages: list[Page], prefix: str = ""):
     if not out_dir:
         return
     span_dir = out_dir / "spans"
     span_dir.mkdir(parents=True, exist_ok=True)
     for page in pages:
-        img = render_image(doc[page.pnum], dpi=render_dpi)
+        img = page.page_image
         spans = [span for block in page.blocks for line in block.lines for span in line.spans]
         labels = [
             [block.block_type] * len(line.spans) for block in page.blocks for line in block.lines
@@ -42,67 +35,6 @@ def dump_spans(
                 indent=4,
                 ensure_ascii=False,
             )
-
-
-def bbox_closure(bboxes: list[list]):
-    if not bboxes:
-        return None
-    bbox = bboxes[0]
-    for b in bboxes[1:]:
-        bbox = merge_boxes(bbox, b)
-    return bbox
-
-
-def update_page_bbox(page: Page):
-    blocks = page.blocks
-    blocks_to_remove = []
-    if not blocks:
-        return
-    for block_idx, block in enumerate(blocks):
-        lines_to_remove = []
-        for line_idx, line in enumerate(block.lines):
-            spans_to_remove = []
-            for span_idx, span in enumerate(line.spans):
-                # remove empty spans
-                if not span.text.strip():
-                    spans_to_remove.append(span_idx)
-                    continue
-            line.spans = [span for idx, span in enumerate(line.spans) if idx not in spans_to_remove]
-            if not line.spans:
-                lines_to_remove.append(line_idx)
-                continue
-            line.bbox = bbox_closure([span.bbox for span in line.spans])
-        block.lines = [line for idx, line in enumerate(block.lines) if idx not in lines_to_remove]
-        if not block.lines:
-            blocks_to_remove.append(block_idx)
-            continue
-        block.bbox = bbox_closure([line.bbox for line in block.lines])
-    page.blocks = [block for idx, block in enumerate(blocks) if idx not in blocks_to_remove]
-
-
-def update_page_char_bbox(page: Page):
-    if not page.char_blocks:
-        return
-    new_blocks = []
-    for block in page.char_blocks:
-        new_lines = []
-        for line in block["lines"]:
-            new_spans = []
-            for span in line["spans"]:
-                # remove empty chars (faraway from most chars)
-                span["chars"] = [char for char in span["chars"] if char["char"].strip()]
-                if span["chars"]:
-                    span["bbox"] = bbox_closure([char["bbox"] for char in span["chars"]])
-                    new_spans.append(span)
-            if new_spans:
-                line["bbox"] = bbox_closure([span["bbox"] for span in new_spans])
-                line["spans"] = new_spans
-                new_lines.append(line)
-        if new_lines:
-            block["bbox"] = bbox_closure([line["bbox"] for line in new_lines])
-            block["lines"] = new_lines
-            new_blocks.append(block)
-    page.char_blocks = new_blocks
 
 
 def dump_full_text_images(
@@ -130,41 +62,42 @@ def dump_full_text_images(
         )
 
 
-def dump_order(out_dir, pages, order_results, doc, render_dpi):
+def dump_order(out_dir, pages: list[Page]):
     if not out_dir:
         return
     order_dir = out_dir / "order"
     order_dir.mkdir(parents=True, exist_ok=True)
-    for page, order_result in zip(pages, order_results):
-        img = render_image(doc[page.pnum], dpi=render_dpi)
-        polys = [line.polygon for line in order_result.bboxes]
-        positions = [str(line.position) for line in order_result.bboxes]
-        order_img = draw_polys_on_image(polys, img.copy(), labels=positions, label_font_size=20)
+    for page in pages:
+        if not page.order:
+            continue
+        polys = [line.polygon for line in page.order.bboxes]
+        positions = [str(line.position) for line in page.order.bboxes]
+        order_img = draw_polys_on_image(
+            polys, page.page_image.copy(), labels=positions, label_font_size=20
+        )
         order_img.save(order_dir / f"{page.pnum}.png")
 
 
-def dump_layout(out_dir, pages, layout_results, doc, render_dpi):
+def dump_layout(out_dir, pages: list[Page]):
     if not out_dir:
         return
     layout_dir = out_dir / "layout"
     layout_dir.mkdir(parents=True, exist_ok=True)
-    for page, layout_result in zip(pages, layout_results):
-        img = render_image(doc[page.pnum], dpi=render_dpi)
-
-        polygons = [p.polygon for p in layout_result.bboxes]
-        labels = [p.label for p in layout_result.bboxes]
-        layout_img = draw_polys_on_image(polygons, img.copy(), labels=labels)
+    for page in pages:
+        if not page.layout:
+            continue
+        polygons = [p.polygon for p in page.layout.bboxes]
+        labels = [p.label for p in page.layout.bboxes]
+        layout_img = draw_polys_on_image(polygons, page.page_image.copy(), labels=labels)
         layout_img.save(layout_dir / f"{page.pnum}.png")
 
 
-def dump_ocr(out_dir, pages, doc, langs, render_dpi):
+def dump_ocr(out_dir, pages: list[Page], langs: list[str]):
     if not out_dir:
         return
     ocr_dir = out_dir / "ocr"
     ocr_dir.mkdir(parents=True, exist_ok=True)
     for page in pages:
-        img = render_image(doc[page.pnum], dpi=render_dpi)
-
         bboxes = []
         text = []
         for block in page.blocks:
@@ -175,32 +108,34 @@ def dump_ocr(out_dir, pages, doc, langs, render_dpi):
         rec_img = draw_text_on_image(
             bboxes,
             text,
-            img.size,
+            page.page_image.size,
             langs,
             has_math="_math" in langs,
         )
         rec_img.save(ocr_dir / f"{page.pnum}.png")
 
 
-def dump_detection(out_dir, pages, predictions, doc, render_dpi):
+def dump_detection(out_dir, pages: list[Page]):
     if out_dir is None:
         return
     det_dir = out_dir / "detection"
     det_dir.mkdir(parents=True, exist_ok=True)
-    for page, pred in zip(pages, predictions):
-        img = render_image(doc[page.pnum], dpi=render_dpi)
-        polygons = [p.polygon for p in pred.bboxes]
-        det_img = draw_polys_on_image(polygons, img.copy())
+    for page in pages:
+        if not page.text_lines:
+            continue
+        polygons = [p.polygon for p in page.text_lines.bboxes]
+        det_img = draw_polys_on_image(polygons, page.page_image.copy())
         det_img.save(det_dir / f"{page.pnum}.png")
 
 
 def dump_tables(
     out_dir: pathlib.Path | None,
-    doc: pdfium.PdfDocument,
-    table_details: dict[str, tuple[list[dict], list[list[str]]]],
-    render_dpi: int,
+    pages: list[Page],
+    table_details: dict[str, tuple[list[TableCell], list[list[str]]]] = {},
 ):
     if out_dir is None:
+        return
+    if not table_details:
         return
     for name, (cells, rows) in table_details.items():
         table_dir = out_dir / "tables"
@@ -210,7 +145,7 @@ def dump_tables(
                 f.write(",".join(row) + "\n")
         if cells:
             pnum = int(name.split("_")[0])
-            img = render_image(doc[pnum], dpi=render_dpi)
+            img = pages[pnum].page_image.copy()
             bboxes = [c.bbox for c in cells]
             labels = [c.label for c in cells]
             draw_bboxes_on_image(bboxes, img, labels).save(table_dir / f"{name}.png")
