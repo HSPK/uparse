@@ -1,6 +1,6 @@
 from .art import print_uparse_text_art
 from .convert import convert_to, csv_dumps
-from .gpu import grasp_one_gpu
+from .gpu import clear_occupied_gpu, grasp_one_gpu
 from .image import decode_base64_to_image, encode_image_to_base64
 
 __all__ = [
@@ -10,4 +10,5 @@ __all__ = [
     "grasp_one_gpu",
     "encode_image_to_base64",
     "decode_base64_to_image",
+    "clear_occupied_gpu",
 ]

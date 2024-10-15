@@ -2,7 +2,6 @@ from typing import Any
 
 import torch
 import whisper
-from loguru import logger
 from surya.model.detection.model import load_model as load_detection_model
 from surya.model.detection.model import load_processor as load_detection_processor
 from surya.model.ordering.model import load_model as load_order_model
@@ -48,7 +47,7 @@ def load_models(dtype: torch.dtype = torch.float32) -> Models:
 
     print_uparse_text_art()
     device = get_device()
-    logger.debug(f"Using device: {device}")
+    print(f"[LOG] ✅ Loading Models on {device}")
     print("[LOG] ✅ Loading Surya Model")
     g_models = {}
     texify_model = load_texify_model(device=device, dtype=dtype)
@@ -76,7 +75,7 @@ def load_models(dtype: torch.dtype = torch.float32) -> Models:
         "microsoft/table-structure-recognition-v1.1-all"
     ).to(device)
     print("[LOG] ✅ Loading Audio Model")
-    g_models["whisper_model"] = whisper.load_model("small")
+    g_models["whisper_model"] = whisper.load_model("small", device=device)
     print("[LOG] ✅ All models loaded")
     return g_models
 

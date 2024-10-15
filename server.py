@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from uparse import get_all_models
 from uparse.routes.parse import router
+from uparse.utils import clear_occupied_gpu
 
 app = FastAPI()
 
@@ -39,7 +40,10 @@ def main():
 
     import uvicorn
 
-    uvicorn.run("server:app", host=args.host, port=args.port, reload=args.reload)
+    clear_occupied_gpu()
+    uvicorn.run(
+        "server:app", host=args.host, port=args.port, reload=args.reload, workers=args.workers
+    )
 
 
 if __name__ == "__main__":

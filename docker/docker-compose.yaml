@@ -14,7 +14,7 @@ services:
       - ${UPARSE_UPLOAD_DIR:-./uploads}:/app/uploads
     env_file:
       - .env.uparse
-    command: [ "python3", "server.py", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+    command: [ "python3", "server.py", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
 
 volumes:
   huggingface_data:
