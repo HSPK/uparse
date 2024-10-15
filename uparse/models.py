@@ -15,7 +15,7 @@ from texify.model.processor import load_processor as load_texify_processor
 from transformers import TableTransformerForObjectDetection
 from typing_extensions import TypedDict
 
-from uparse.utils import get_freer_gpu, print_uparse_text_art
+from uparse.utils import grasp_one_gpu, print_uparse_text_art
 
 from .pipeline.pdf.marker.postprocessors.editor import load_editing_model
 
@@ -36,7 +36,7 @@ g_models: Models = None
 
 def get_device():
     if torch.cuda.is_available():
-        return torch.device(f"cuda:{get_freer_gpu()}")
+        return torch.device(f"cuda:{grasp_one_gpu()}")
     return torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
 
 
@@ -77,6 +77,7 @@ def load_models(dtype: torch.dtype = torch.float32) -> Models:
     ).to(device)
     print("[LOG] ✅ Loading Audio Model")
     g_models["whisper_model"] = whisper.load_model("small")
+    print("[LOG] ✅ All models loaded")
     return g_models
 
 

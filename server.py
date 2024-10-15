@@ -7,7 +7,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from uparse import get_all_models
 from uparse.routes.parse import router
 
-warnings.filterwarnings("ignore", category=UserWarning)
 app = FastAPI()
 
 app.add_middleware(
@@ -18,7 +17,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+def on_app_startup():
+    warnings.filterwarnings("ignore", category=UserWarning)
+    warnings.filterwarnings("ignore", category=FutureWarning)
+    get_all_models()
+
+
 app.include_router(router, prefix="/parse")
+app.add_event_handler("startup", on_app_startup)
 
 
 def main():
@@ -30,15 +37,9 @@ def main():
     parser.add_argument("--workers", type=int, default=1, help="Number of workers")
     args = parser.parse_args()
 
-    get_all_models()
-
-    app.include_router(router, prefix="/parse")
-
     import uvicorn
 
-    uvicorn.run(
-        "server:app", host=args.host, port=args.port, reload=args.reload, workers=args.workers
-    )
+    uvicorn.run("server:app", host=args.host, port=args.port, reload=args.reload)
 
 
 if __name__ == "__main__":

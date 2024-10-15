@@ -1,3 +1,4 @@
+import multiprocessing
 import os
 import pathlib
 import re
@@ -15,15 +16,6 @@ from .utils import (
 )
 
 
-def run_in_process(func):
-    def wrapper(*args, **kwargs):
-        import multiprocessing
-
-        process = multiprocessing.Process(target=func, args=args, kwargs=kwargs)
-        process.start()
-
-    return wrapper
-
 def normalize_uri(uri: str):
     basename = os.path.basename(uri)
     basename = basename.replace(" ", "_")
@@ -34,7 +26,6 @@ def normalize_uri(uri: str):
     return basename
 
 
-@run_in_process
 def dump_details(out_dir: pathlib.Path, state: PDFState):
     out_dir = out_dir / normalize_uri(state["uri"])
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -53,5 +44,6 @@ class DumpDetails(PDFTransform):
         self.out_dir = pathlib.Path(out_dir)
 
     async def transform(self, state: PDFState, **kwargs):
-        dump_details(self.out_dir, state)
+        process = multiprocessing.Process(target=dump_details, args=(self.out_dir, state))
+        process.start()
         return state
