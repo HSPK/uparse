@@ -10,10 +10,11 @@ services:
       - "${UPARSE_PORT:-127.0.0.1:8000}:8000"
     volumes:
       - huggingface_data:/root/.cache/huggingface
-      - ${UPARSE_OUTPUT:-./outputs}:/app/outputs
+      - ${UPARSE_OUTPUT_DIR:-./outputs}:/app/outputs
+      - ${UPARSE_UPLOAD_DIR:-./uploads}:/app/uploads
     env_file:
       - .env.uparse
-    command: [ "python3", "server.py", "--host", "0.0.0.0", "--port", "8000"]
+    command: [ "python3", "server.py", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
 
 volumes:
   huggingface_data:
