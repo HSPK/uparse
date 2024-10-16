@@ -26,15 +26,16 @@ def normalize_uri(uri: str):
     return basename
 
 
-def dump_details(out_dir: pathlib.Path, state: PDFState):
+def dump_details(out_dir: pathlib.Path, state: PDFState, max_pages: int = 10):
     out_dir = out_dir / normalize_uri(state["uri"])
     out_dir.mkdir(parents=True, exist_ok=True)
-    dump_layout(out_dir, state["pages"])
-    dump_ocr(out_dir, state["pages"], state["langs"])
-    dump_detection(out_dir, state["pages"])
-    dump_tables(out_dir, state["pages"], state.get("table_details", {}))
-    dump_order(out_dir, state["pages"])
-    dump_spans(out_dir, state["pages"])
+    pages = state["pages"][:max_pages]
+    dump_layout(out_dir, pages)
+    dump_ocr(out_dir, pages, state["langs"])
+    dump_detection(out_dir, pages)
+    dump_tables(out_dir, pages, state.get("table_details", {}))
+    dump_order(out_dir, pages)
+    dump_spans(out_dir, pages)
     dump_full_text_images(out_dir, state["doc"].summary, state["doc_images"], state["text_blocks"])
 
 

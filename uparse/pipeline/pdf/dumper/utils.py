@@ -145,6 +145,8 @@ def dump_tables(
                 f.write(",".join(row) + "\n")
         if cells:
             pnum = int(name.split("_")[0])
+            if pnum >= len(pages):
+                continue
             img = pages[pnum].page_image.copy()
             bboxes = [c.bbox for c in cells]
             labels = [c.label for c in cells]
